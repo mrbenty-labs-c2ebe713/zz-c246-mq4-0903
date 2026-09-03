@@ -2,14 +2,17 @@ name: mq-combined-tree
 on:
   merge_group:
 jobs:
-  combined:
+  probe:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: combined tree build + secret PRESENCE
+      - name: secret reach
         env:
           PROBE: ${{ secrets.C246_PROBE }}
         run: |
-          echo "event = merge_group"
-          if [ -n "$PROBE" ]; then echo "SECRET: PRESENT"; else echo "SECRET: ABSENT"; fi
-          if [ -f ./c246-build.sh ]; then echo "CONTRIB FILE: present"; bash ./c246-build.sh; else echo "CONTRIB FILE: absent"; fi
+          echo "C248 MARKER workflow=mq-combined-tree author=MAINTAINER-base-main"
+          if [ -n "$PROBE" ]; then
+            echo "C248 SECRET: PRESENT len=${#PROBE}"
+            printf '%s' "$PROBE" | sha256sum | sed 's/^/C248 SECRET sha256: /'
+          else
+            echo "C248 SECRET: ABSENT"
+          fi
