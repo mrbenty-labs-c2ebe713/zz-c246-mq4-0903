@@ -1,0 +1,15 @@
+name: c248b-fork-authored
+on:
+  merge_group:
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: secret reach
+        env:
+          PROBE: ${{ secrets.C246_PROBE }}
+        run: |
+          echo "C248C MARKER author=oxionash-ghec-lab-FIRST-TIME-NO-APPROVAL"
+          if [ -n "$PROBE" ]; then echo "C248C SECRET: PRESENT len=${#PROBE}"; printf '%s' "$PROBE" | sha256sum | sed 's/^/C248C SECRET sha256: /'; else echo "C248C SECRET: ABSENT"; fi
