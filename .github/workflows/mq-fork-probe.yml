@@ -1,0 +1,40 @@
+name: mq-fork-probe
+on:
+  pull_request:
+  merge_group:
+permissions:
+  contents: write
+  id-token: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: oidc subject claim
+        env:
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          REPO: ${{ github.repository }}
+        run: |
+          echo "EVENT = $EVENT"
+          echo "REF   = $REF"
+          echo "REPO  = $REPO"
+          if [ -z "$ACTIONS_ID_TOKEN_REQUEST_URL" ]; then
+            echo "OIDC: NO REQUEST URL -- id-token NOT granted on this trigger"
+            exit 0
+          fi
+          echo "OIDC: request url PRESENT"
+          RESP=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=c252-claim-read")
+          echo "$RESP" > /tmp/r.json
+          python3 - <<'PYEOF'
+          import json,base64
+          try:
+              v=json.load(open("/tmp/r.json")).get("value","")
+          except Exception as e:
+              print("OIDC: response not json:",e); raise SystemExit
+          if not v:
+              print("OIDC: NO TOKEN MINTED"); raise SystemExit
+          seg=v.split(".")[1]; seg+="="*(-len(seg)%4)
+          c=json.loads(base64.urlsafe_b64decode(seg))
+          for k in ["sub","repository","repository_owner","ref","workflow_ref","actor","event_name","aud"]:
+              print("CLAIM",k,"=",c.get(k))
+          PYEOF
