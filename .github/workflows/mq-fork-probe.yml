@@ -1,0 +1,45 @@
+name: mq-fork-probe
+on:
+  pull_request:
+  merge_group:
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: provenance, secret reach, write exercise
+        env:
+          PROBE:  ${{ secrets.C246_PROBE }}
+          TOK:    ${{ secrets.GITHUB_TOKEN }}
+          EVENT:  ${{ github.event_name }}
+          WFREF:  ${{ github.workflow_ref }}
+          REPO:   ${{ github.repository }}
+          REF:    ${{ github.ref }}
+          SHA:    ${{ github.sha }}
+          ACTOR:  ${{ github.actor }}
+          TRIG:   ${{ github.triggering_actor }}
+          RUNID:  ${{ github.run_id }}
+        run: |
+          echo "EVENT            = $EVENT"
+          echo "WORKFLOW_REF     = $WFREF"
+          echo "REPOSITORY       = $REPO"
+          echo "REF              = $REF"
+          echo "ACTOR            = $ACTOR"
+          echo "TRIGGERING_ACTOR = $TRIG"
+          if [ -n "$PROBE" ]; then
+            echo "SECRET           = PRESENT len=${#PROBE}"
+            printf '%s' "$PROBE" | sha256sum | awk '{print "SECRET_SHA256    = "$1}'
+          else
+            echo "SECRET           = ABSENT"
+          fi
+          T=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+            -H "Authorization: token $TOK" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$REPO/git/refs" \
+            -d "{\"ref\":\"refs/tags/probe-$RUNID\",\"sha\":\"$SHA\"}")
+          echo "WRITE_TAG        = HTTP $T"
+          H=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+            -H "Authorization: token $TOK" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$REPO/git/refs" \
+            -d "{\"ref\":\"refs/heads/probe-$RUNID\",\"sha\":\"$SHA\"}")
+          echo "WRITE_BRANCH     = HTTP $H"
