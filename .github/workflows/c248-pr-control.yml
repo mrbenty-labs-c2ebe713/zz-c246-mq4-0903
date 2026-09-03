@@ -1,0 +1,13 @@
+name: c248-pr-control
+on:
+  pull_request:
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: pull_request event secret reach (THE CONTROL)
+        env:
+          PROBE: ${{ secrets.C246_PROBE }}
+        run: |
+          echo "C248 MARKER event=pull_request author=neve-larsson-NO-BASE-WRITE"
+          if [ -n "$PROBE" ]; then echo "C248 SECRET: PRESENT len=${#PROBE}"; printf '%s' "$PROBE" | sha256sum | sed 's/^/C248 SECRET sha256: /'; else echo "C248 SECRET: ABSENT"; fi
