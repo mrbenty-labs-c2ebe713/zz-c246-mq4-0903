@@ -1,0 +1,16 @@
+name: c248-fork-authored
+on:
+  merge_group:
+permissions:
+  contents: write
+  # ^ THE BYTE: does a candidate-authored workflow grant itself write over a read default?
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: secret reach + token shape
+        env:
+          PROBE: ${{ secrets.C246_PROBE }}
+        run: |
+          echo "C248 MARKER author=neve-larsson-NO-BASE-WRITE"
+          if [ -n "$PROBE" ]; then echo "C248 SECRET: PRESENT len=${#PROBE}"; printf '%s' "$PROBE" | sha256sum | sed 's/^/C248 SECRET sha256: /'; else echo "C248 SECRET: ABSENT"; fi
