@@ -1,0 +1,9 @@
+name: slowgate
+on:
+  pull_request:
+jobs:
+  slowgate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: stand in for ordinary CI duration
+        run: sleep 240
