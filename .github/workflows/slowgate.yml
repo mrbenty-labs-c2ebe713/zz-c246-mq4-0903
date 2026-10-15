@@ -1,0 +1,8 @@
+name: slowgate
+on:
+  pull_request:
+jobs:
+  slowgate:
+    runs-on: ubuntu-latest
+    steps:
+      - run: sleep 300
