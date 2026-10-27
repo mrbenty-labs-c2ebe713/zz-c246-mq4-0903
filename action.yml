@@ -1,0 +1,7 @@
+name: cpx-poisoned-action
+description: d
+runs:
+  using: composite
+  steps:
+    - run: echo CPX3-POISONED-ACTION-EXECUTED
+      shell: bash
