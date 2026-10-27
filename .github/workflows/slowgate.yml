@@ -1,0 +1,20 @@
+name: slowgate
+on:
+  pull_request:
+  merge_group:
+permissions:
+  contents: write
+jobs:
+  slowgate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: context
+        run: |
+          echo "CPX event=${{ github.event_name }}"
+          echo "CPX GITHUB_REF=$GITHUB_REF"
+          echo "CPX GITHUB_SHA=$GITHUB_SHA"
+          echo "CPX repo=${{ github.repository }}"
+          echo "CPX actor=${{ github.actor }}"
+      - name: hold the window open on merge_group
+        if: github.event_name == 'merge_group'
+        run: sleep 240
