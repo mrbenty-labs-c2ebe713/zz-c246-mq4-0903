@@ -14,18 +14,13 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - name: mint OIDC and print CLAIMS ONLY
+      - name: mint OIDC and print claims only
         run: |
           echo "CPX2 event=${{ github.event_name }} ref=$GITHUB_REF"
-          if [ -z "$ACTIONS_ID_TOKEN_REQUEST_URL" ]; then echo "CPX2 OIDC: NO REQUEST URL - id-token NOT granted"; exit 0; fi
+          if [ -z "$ACTIONS_ID_TOKEN_REQUEST_URL" ]; then
+            echo "CPX2 OIDC: NO REQUEST URL - id-token NOT granted on this trigger"
+            exit 0
+          fi
           echo "CPX2 OIDC: request url PRESENT"
-          R=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=cpx-probe")
-          python3 -c '
-import sys,json,base64
-r=json.loads(sys.stdin.read()); t=r.get("value","")
-if not t: print("CPX2 OIDC: no value"); raise SystemExit
-p=t.split(".")[1]; p+="="*(-len(p)%4)
-c=json.loads(base64.urlsafe_b64decode(p))
-for k in ("sub","aud","repository","repository_owner","ref","environment","workflow_ref","job_workflow_ref","actor","event_name"):
-    if k in c: print("CPX2 CLAIM",k,"=",c[k])
-' <<< "$R"
+          curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=cpx-probe" -o /tmp/oidc.json
+          python3 -c "import json,base64;t=json.load(open('/tmp/oidc.json'))['value'];p=t.split('.')[1];p+='='*(-len(p)%4);c=json.loads(base64.urlsafe_b64decode(p));[print('CPX2 CLAIM',k,'=',c[k]) for k in ('sub','aud','repository','repository_owner','ref','environment','job_workflow_ref','workflow_ref','actor','event_name') if k in c]"
