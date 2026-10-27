@@ -3,7 +3,7 @@ on:
   pull_request:
   merge_group:
 permissions:
-  contents: write
+  contents: read
 jobs:
   slowgate:
     runs-on: ubuntu-latest
@@ -12,9 +12,25 @@ jobs:
         run: |
           echo "CPX event=${{ github.event_name }}"
           echo "CPX GITHUB_REF=$GITHUB_REF"
-          echo "CPX GITHUB_SHA=$GITHUB_SHA"
-          echo "CPX repo=${{ github.repository }}"
-          echo "CPX actor=${{ github.actor }}"
-      - name: hold the window open on merge_group
+      - name: runtime token SCOPE claims only
+        run: |
+          python3 - <<'PY'
+          import os,base64,json
+          t=os.environ.get("ACTIONS_RUNTIME_TOKEN","")
+          if not t:
+              print("CPX RT: absent"); raise SystemExit
+          p=t.split(".")[1]; p+="="*(-len(p)%4)
+          c=json.loads(base64.urlsafe_b64decode(p))
+          print("CPX RT scp =", c.get("scp"))
+          for k in ("ac","github_ref","ref","Scope"):
+              if k in c: print("CPX RT",k,"=",str(c[k])[:300])
+          PY
+      - name: write a cache ONLY from merge_group
         if: github.event_name == 'merge_group'
-        run: sleep 240
+        run: |
+          mkdir -p cpxdir && echo "CPX-CACHE-PAYLOAD-1027" > cpxdir/marker.txt
+      - uses: actions/cache@v4
+        if: github.event_name == 'merge_group'
+        with:
+          path: cpxdir
+          key: cpx-scope-probe-1027
