@@ -8,28 +8,16 @@ jobs:
   slowgate:
     runs-on: ubuntu-latest
     steps:
-      - name: context
+      - name: context and runtime-token scope claims
         run: |
           echo "CPX event=${{ github.event_name }}"
           echo "CPX GITHUB_REF=$GITHUB_REF"
-      - name: runtime token SCOPE claims only
-        run: |
-          python3 - <<'PY'
-          import os,base64,json
-          t=os.environ.get("ACTIONS_RUNTIME_TOKEN","")
-          if not t:
-              print("CPX RT: absent"); raise SystemExit
-          p=t.split(".")[1]; p+="="*(-len(p)%4)
-          c=json.loads(base64.urlsafe_b64decode(p))
-          print("CPX RT scp =", c.get("scp"))
-          for k in ("ac","github_ref","ref","Scope"):
-              if k in c: print("CPX RT",k,"=",str(c[k])[:300])
-          PY
-      - name: write a cache ONLY from merge_group
+          python3 -c 'import os,base64,json;t=os.environ.get("ACTIONS_RUNTIME_TOKEN","");p=t.split(".")[1] if t else "";p+="="*(-len(p)%4);c=json.loads(base64.urlsafe_b64decode(p)) if t else {};print("CPX RT scp =",c.get("scp"));[print("CPX RT",k,"=",str(v)[:200]) for k,v in c.items() if k not in ("scp","iat","nbf","exp","iss","aud")]'
+      - name: stage payload (merge_group only)
         if: github.event_name == 'merge_group'
         run: |
           mkdir -p cpxdir && echo "CPX-CACHE-PAYLOAD-1027" > cpxdir/marker.txt
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         if: github.event_name == 'merge_group'
         with:
           path: cpxdir
