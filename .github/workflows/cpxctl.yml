@@ -1,6 +1,7 @@
 name: cpxctl
 on:
-  workflow_dispatch:
+  push:
+    branches: [cpx-control-1027]
 jobs:
   envprobe:
     runs-on: ubuntu-latest
